@@ -1,0 +1,65 @@
+apiVersion: core.eda.nokia.com/v1
+kind: Manifest
+metadata:
+  name: useraudit
+spec:
+  group: useraudit.eda.edacommunity.com
+  version: v1alpha1
+  title: EDA User Audit
+  description: |
+    Audit logging for data center network operations on EDA.
+    Tracks every configuration change made to your network fabric —
+    who made the change, when, from which IP address, and exactly
+    what was modified — with a human-readable flattened diff of each
+    device configuration update. Also records all user sign-in and
+    sign-out activity from the EDA GUI, as well as administrative
+    account and access-control changes in Keycloak (user, group,
+    and role management). All events are written to monthly log
+    files accessible via the EDA UI or a simple HTTP API, making
+    them easy to integrate with your existing SIEM, compliance
+    archival, or change-management workflows. Starts logging
+    automatically upon installation with no additional setup required.
+  author: EDACommunity
+  image: ghcr.io/kkayhan/edaapp_useraudit/useraudit-app:v0.8.0
+  supportedCoreVersions:
+    - "v5.0.0-0"
+  appInfo:
+    categories:
+      - monitoring
+    documentation: useraudit/docs
+    ociSpecVersion: v1.0.0
+    settings: useraudit/settings/openapi/eda_oas_useraudit.eda.edacommunity.com_appsettings.json
+  components:
+    - crd:
+        api:
+          expose: readWrite
+        path: useraudit/crds/useraudit.eda.edacommunity.com_userauditconfigs.yaml
+        schema: useraudit/openapiv3/eda_oas_useraudit.eda.edacommunity.com_userauditconfigs.json
+        namespaced: false
+        ui:
+          category: User Audit
+          name: Config
+        names:
+          kind: UserAuditConfig
+          listKind: UserAuditConfigList
+          plural: userauditconfigs
+          singular: userauditconfig
+    - cr:
+        path: useraudit/manifests/app_deployment.yaml
+    - cr:
+        path: useraudit/manifests/pvc.yaml
+    - cr:
+        path: useraudit/manifests/service.yaml
+    - cr:
+        path: useraudit/manifests/httpproxy.yaml
+    - cr:
+        path: useraudit/manifests/rbac.yaml
+  dependencies:
+    - file:
+        path: utils
+    - file:
+        path: common
+    - file:
+        path: useraudit/api/v1alpha1/pysrc
+    - file:
+        path: useraudit/api

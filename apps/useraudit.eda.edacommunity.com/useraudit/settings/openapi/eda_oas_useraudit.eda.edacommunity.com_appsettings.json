@@ -1,0 +1,45 @@
+{
+  "description": "AppSettings is the Schema for the appsettings API.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "AppSettingsSpec defines the desired state of AppSettings.",
+      "type": "object",
+      "title": "Specification",
+      "properties": {
+        "controllerCpuLimit": {
+          "description": "Maximum CPU the User Audit controller pod is allowed to use.\nKubernetes CPU units: \"200m\" = 0.2 of one core, \"1\" = one full core.\nThe default fits a small fabric. Raise this if you see audit logging\nfall behind during periods of heavy configuration change.",
+          "type": "string",
+          "title": "Controller CPU limit",
+          "default": "200m"
+        },
+        "controllerMemoryLimit": {
+          "description": "Maximum memory the User Audit controller pod is allowed to use.\nKubernetes memory units: \"128Mi\" = 128 MiB, \"1Gi\" = 1 GiB.\nThe default fits a small fabric. Raise this if the pod gets restarted\nwith reason \"OOMKilled\" (visible in `kubectl describe pod` / pod status).",
+          "type": "string",
+          "title": "Controller memory limit",
+          "default": "128Mi"
+        },
+        "logStorageSize": {
+          "description": "Disk space reserved on the persistent volume for monthly audit log\nfiles (Transaction-YYYY-MM.log). 500Mi typically holds many months of\nlogs on a small or medium fabric. The volume is created once at install\ntime and CANNOT be resized later from this setting -- pick a size with\nsome headroom for your retention policy.",
+          "type": "string",
+          "title": "Audit log storage size",
+          "default": "500Mi"
+        }
+      },
+      "x-eda-nokia-com": {
+        "ui-order-priority": 30
+      }
+    }
+  }
+}
