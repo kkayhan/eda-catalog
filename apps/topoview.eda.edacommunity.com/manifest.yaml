@@ -18,7 +18,7 @@ spec:
     removed, or re-cabled -- the dashboard regenerates automatically. Requires the
     prom.eda.nokia.com Prometheus exporter app.
   author: EDACommunity
-  image: ghcr.io/kkayhan/edaapp_grafana/topoview-app:v0.1.1
+  image: ghcr.io/kkayhan/edaapp_grafana/topoview-app:v0.1.2
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
@@ -41,10 +41,9 @@ spec:
           listKind: TopoViewConfigList
           plural: topoviewconfigs
           singular: topoviewconfig
-    # Install ordering: namespace first, then RBAC/secret, then the stack, then
-    # the EDA-side Exports + HttpProxy, then the controller Deployment last.
-    - cr:
-        path: topoview/manifests/00-namespace.yaml
+    # Everything installs into eda-system (EDA apps can't create + populate a
+    # custom namespace in one transaction). Order: RBAC/secret, then the stack,
+    # then the HttpProxy, then the controller Deployment last.
     - cr:
         path: topoview/manifests/rbac.yaml
     - cr:
