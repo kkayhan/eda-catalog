@@ -6,6 +6,15 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.3-2
+
+- Fix first-run initialization against EDA **26.4.1**. `discover_current_watermark()`
+  queried the transaction-summary list endpoint as `?page=0&size=1`, but the
+  `page` parameter does not exist on 26.4.1 (its only required query param is
+  `size`), so the request returned 404 and the audit loop never started. The call
+  is now `?size=1` — honored across 26.4.x — and the watermark is taken as the
+  max transaction id over the returned results (order-agnostic).
+
 ## v26.4.3-1
 
 - Adopt the EDA-release-tied version scheme. This build targets and is
