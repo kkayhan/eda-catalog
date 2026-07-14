@@ -20,7 +20,7 @@ spec:
     archival, or change-management workflows. Starts logging
     automatically upon installation with no additional setup required.
   author: EDACommunity
-  image: ghcr.io/kkayhan/edaapp_useraudit/useraudit-app:v0.8.0
+  image: ghcr.io/kkayhan/edaapp_useraudit/useraudit-app:v26.4.3-1
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
