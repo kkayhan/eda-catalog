@@ -1,0 +1,155 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: imagemanagerconfigs.imagemanager.eda.edacommunity.com
+spec:
+  group: imagemanager.eda.edacommunity.com
+  names:
+    kind: ImageManagerConfig
+    listKind: ImageManagerConfigList
+    plural: imagemanagerconfigs
+    singular: imagemanagerconfig
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ImageManagerConfig is the Schema for the imagemanagerconfigs
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ImageManagerConfigSpec defines the desired state of ImageManagerConfig.
+              A single cluster-scoped instance named "default" is auto-created by the
+              controller on first boot and holds operator-tunable defaults for the
+              upload UI and the Artifact CRs it creates.
+            properties:
+              defaultArtifactNamespace:
+                default: eda
+                description: |-
+                  DefaultArtifactNamespace is the namespace where new Artifact CRs are
+                  created when the upload form does not specify one. The built-in EDA
+                  artifact server (eda-asvr) re-hosts the file under this namespace.
+                type: string
+              defaultRepo:
+                default: images
+                description: |-
+                  DefaultRepo is the artifact repo name pre-filled in the upload UI.
+                  The repo field on an Artifact is IMMUTABLE once created; multiple
+                  artifacts may share a repo.
+                type: string
+              filePullBaseUrl:
+                description: |-
+                  FilePullBaseUrl is the in-cluster HTTPS base URL that eda-asvr uses to
+                  pull uploaded files from this app. Leave empty to auto-derive
+                  https://eda-imagemanager.<pod-namespace>.svc:8443/ . Override only for
+                  non-standard service names or ports.
+                pattern: ^(https?://.*)?$
+                type: string
+              maxUploadMiB:
+                default: 4096
+                description: |-
+                  MaxUploadMiB rejects direct uploads larger than this many MiB, in both
+                  the browser and the server. Guards the PVC and surfaces any HTTP-proxy
+                  body-size limit early.
+                maximum: 65536
+                minimum: 1
+                type: integer
+            type: object
+          status:
+            description: |-
+              ImageManagerConfigStatus defines the observed state of ImageManagerConfig.
+              The controller is the sole writer of this status.
+            properties:
+              artifacts:
+                description: |-
+                  Artifacts is a denormalized view of the Artifact CRs this app created,
+                  with each Artifact's live download status mirrored for the UI.
+                items:
+                  description: |-
+                    TrackedArtifact is a denormalized record of one Artifact CR created by this
+                    app, including the live download status mirrored from the Artifact.
+                  properties:
+                    downloadStatus:
+                      description: |-
+                        DownloadStatus mirrors Artifact.status.downloadStatus
+                        (InProgress, Available, Error, or Failed).
+                      type: string
+                    externalUrl:
+                      description: ExternalUrl mirrors Artifact.status.externalUrl
+                        once Available.
+                      type: string
+                    filePath:
+                      description: FilePath is the destination path/filename in the
+                        artifact server.
+                      type: string
+                    name:
+                      description: Name is the Artifact CR name (equals the upload
+                        id).
+                      type: string
+                    namespace:
+                      description: Namespace is the Artifact CR namespace.
+                      type: string
+                    repo:
+                      description: Repo is the artifact repo.
+                      type: string
+                    statusReason:
+                      description: StatusReason mirrors Artifact.status.statusReason
+                        on Error/Failed.
+                      type: string
+                  required:
+                  - filePath
+                  - name
+                  - namespace
+                  - repo
+                  type: object
+                type: array
+              bytesStored:
+                description: BytesStored is the total bytes of upload files on the
+                  PVC.
+                format: int64
+                type: integer
+              health:
+                description: 'Health is the overall health: ok, degraded, or error.'
+                type: string
+              lastReconcileTime:
+                description: LastReconcileTime is the timestamp of the last completed
+                  reconcile cycle.
+                type: string
+              message:
+                description: Message is a human-readable explanation of the current
+                  health state.
+                type: string
+              uploadsStored:
+                description: UploadsStored is the number of upload files currently
+                  on the PVC.
+                type: integer
+              version:
+                description: Version is the controller version string.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

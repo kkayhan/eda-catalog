@@ -1,0 +1,72 @@
+apiVersion: core.eda.nokia.com/v1
+kind: Manifest
+metadata:
+  name: imagemanager
+spec:
+  group: imagemanager.eda.edacommunity.com
+  version: v1alpha1
+  title: EDA Image Manager
+  description: |
+    A lab-friendly web UI to upload network OS images into EDA. You upload a
+    vendor .zip -- SR Linux or Nokia 7750 SR OS (TiMOS) -- and the image type is
+    detected automatically; each upload is stored in-cluster and EDA Artifact CRs
+    are created for you, so the built-in artifact server (eda-asvr) downloads the
+    file(s), validates each md5 (read from inside the zip), and re-hosts them for
+    node bootstrap and image upgrades. SR Linux yields an image Artifact plus a
+    separate md5 Artifact; SR OS unpacks into its boot-file set (boot.ldr,
+    both.tim, cpm.tim, iom.tim, kernel.tim, support.tim) -- one image Artifact and
+    one md5 Artifact per file in the srosimages repo. The matching YANG schema
+    profile is obtained automatically (fetched from nokia-eda/schema-profiles, or
+    built from nokia/7x50_YangModels for unpublished SR OS versions). EDA's
+    artifact server uses a pull model that integrates with an organization's
+    central image store or data lake; this app is a self-contained alternative for
+    labs and PoCs where standing up that external store is unnecessary friction.
+  author: EDACommunity
+  image: ghcr.io/kkayhan/edaapp_imagemanager/imagemanager-app:v26.4.2-27
+  supportedCoreVersions:
+    - "v5.0.0-0"
+  appInfo:
+    categories:
+      - integrations
+    documentation: imagemanager/docs
+    ociSpecVersion: v1.0.0
+    settings: imagemanager/settings/openapi/eda_oas_imagemanager.eda.edacommunity.com_appsettings.json
+  components:
+    - crd:
+        api:
+          expose: readWrite
+        path: imagemanager/crds/imagemanager.eda.edacommunity.com_imagemanagerconfigs.yaml
+        schema: imagemanager/openapiv3/eda_oas_imagemanager.eda.edacommunity.com_imagemanagerconfigs.json
+        namespaced: false
+        ui:
+          category: Image Manager
+          name: Config
+        names:
+          kind: ImageManagerConfig
+          listKind: ImageManagerConfigList
+          plural: imagemanagerconfigs
+          singular: imagemanagerconfig
+    # Install ordering (cable-map pattern): ServiceAccount/RBAC, PVC, and Service
+    # exist before the Deployment that consumes them; HttpProxy after; node-agent
+    # DaemonSet last.
+    - cr:
+        path: imagemanager/manifests/rbac.yaml
+    - cr:
+        path: imagemanager/manifests/pvc.yaml
+    - cr:
+        path: imagemanager/manifests/service.yaml
+    - cr:
+        path: imagemanager/manifests/app_deployment.yaml
+    - cr:
+        path: imagemanager/manifests/httpproxy.yaml
+    - cr:
+        path: imagemanager/manifests/daemonset.yaml
+  dependencies:
+    - file:
+        path: utils
+    - file:
+        path: common
+    - file:
+        path: imagemanager/api/v1alpha1/pysrc
+    - file:
+        path: imagemanager/api

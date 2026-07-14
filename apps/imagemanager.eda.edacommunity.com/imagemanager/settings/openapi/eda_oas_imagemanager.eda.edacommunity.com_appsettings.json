@@ -1,0 +1,57 @@
+{
+  "description": "AppSettings is the Schema for the appsettings API.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "AppSettingsSpec defines the desired state of AppSettings.",
+      "type": "object",
+      "title": "Specification",
+      "properties": {
+        "allowedRoles": {
+          "description": "EDA role(s) allowed to use Image Manager, comma-separated (a user is allowed\nif they hold ANY listed role). Names match EDA's Roles screen; the internal\n\"edarole_\" prefix is handled automatically. Defaults to the system\nadministrator role. The whole UI (view, upload, delete) requires one of these.",
+          "type": "string",
+          "title": "Allowed EDA role(s)",
+          "default": "system-administrator"
+        },
+        "controllerCpuLimit": {
+          "description": "CPU limit for the Image Manager controller pod (Kubernetes quantity, e.g. \"500m\").",
+          "type": "string",
+          "title": "Controller CPU limit",
+          "default": "500m"
+        },
+        "controllerMemoryLimit": {
+          "description": "Memory limit for the Image Manager controller pod (Kubernetes quantity, e.g. \"512Mi\").",
+          "type": "string",
+          "title": "Controller memory limit",
+          "default": "512Mi"
+        },
+        "nodeAgentEnabled": {
+          "description": "NodeAgentEnabled deploys the per-node DaemonSet that writes containerd\nregistry-hosts redirects for SR-SIM image pulls. Set false for labs that\nonly upload SR Linux / SR OS hardware images (DaemonSet stays running but\nskips hosts.toml writes; scale to 0 for zero node pods).",
+          "type": "string",
+          "title": "Enable SR-SIM node agent",
+          "default": "true"
+        },
+        "uploadStorageSize": {
+          "description": "Size of the persistent volume that stores uploaded images before eda-asvr\nre-hosts them (Kubernetes quantity, e.g. \"20Gi\"). Set this large enough to\nhold the images you intend to upload concurrently.",
+          "type": "string",
+          "title": "Upload storage size",
+          "default": "20Gi"
+        }
+      },
+      "x-eda-nokia-com": {
+        "ui-order-priority": 30
+      }
+    }
+  }
+}
