@@ -1,0 +1,8 @@
+apiVersion: topoview.eda.edacommunity.com/v1alpha1
+kind: TopoViewConfig
+metadata:
+  name: default
+spec:
+  # All fields optional — auto-discovery drives everything.
+  refresh: 5s
+  namespaceExclude: []
