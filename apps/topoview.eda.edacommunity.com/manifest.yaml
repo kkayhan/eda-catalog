@@ -18,7 +18,7 @@ spec:
     removed, or re-cabled -- the dashboard regenerates automatically. Requires the
     prom.eda.nokia.com Prometheus exporter app.
   author: EDACommunity
-  image: ghcr.io/kkayhan/edaapp_grafana/topoview-app:v0.1.0
+  image: ghcr.io/kkayhan/edaapp_grafana/topoview-app:v0.1.1
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
@@ -57,8 +57,9 @@ spec:
         path: topoview/manifests/20-grafana-config.yaml
     - cr:
         path: topoview/manifests/21-grafana.yaml
-    - cr:
-        path: topoview/manifests/30-exports.yaml
+    # NOTE: 30-exports.yaml (prom.eda.nokia.com Export CRs) is NOT a bundle
+    # component -- an EDA app may not ship foreign-group CRs. The controller
+    # creates those Exports at runtime instead (see _ensure_exports).
     - cr:
         path: topoview/manifests/40-grafana-httpproxy.yaml
     - cr:
