@@ -8,17 +8,17 @@ spec:
   title: EDA TopoView
   description: |
     Self-contained fabric-topology telemetry app. Install it once and it bundles
-    a Prometheus + Grafana stack (no Loki -- EDA has native logging), auto-detects
-    every EDA namespace that has a fabric, and generates a live Grafana topology
-    dashboard for each one straight from the TopoNode/TopoLink CRs. Border-leaf
-    switches render on the top row, spines in the middle, leaves at the bottom,
-    with dual-half directional links showing per-direction throughput and up/down
-    state. Open the read-only Grafana (no login), pick a namespace from the main
-    menu, and see its fabric. When the topology changes -- a node or link added,
-    removed, or re-cabled -- the dashboard regenerates automatically. Requires the
-    prom.eda.nokia.com Prometheus exporter app.
+    a Grafana stack, auto-detects every EDA namespace that has a fabric, and
+    generates a live Grafana topology dashboard for each one straight from the
+    TopoNode/TopoLink CRs. Border-leaf switches render on the top row, spines in
+    the middle, leaves at the bottom, with dual-half directional links showing
+    per-direction throughput and up/down state. Live telemetry is read directly
+    from EDA via EQL (no Prometheus, no external dependencies). Open the read-only
+    Grafana (no login), pick a namespace from the main menu, and see its fabric.
+    When the topology changes -- a node or link added, removed, or re-cabled --
+    the dashboard regenerates automatically.
   author: EDACommunity
-  image: ghcr.io/kkayhan/edaapp_grafana/topoview-app:v0.1.3
+  image: ghcr.io/kkayhan/edaapp_grafana/topoview-app:v26.4.3-1
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
@@ -42,23 +42,17 @@ spec:
           plural: topoviewconfigs
           singular: topoviewconfig
     # Everything installs into eda-system (EDA apps can't create + populate a
-    # custom namespace in one transaction). Order: RBAC/secret, then the stack,
-    # then the HttpProxy, then the controller Deployment last.
+    # custom namespace in one transaction). Order: RBAC/secret, then Grafana,
+    # then the HttpProxy, then the controller Deployment + Service last. Live
+    # telemetry comes from EQL via the controller -- no Prometheus, no Exports.
     - cr:
         path: topoview/manifests/rbac.yaml
     - cr:
         path: topoview/manifests/01-grafana-secret.yaml
     - cr:
-        path: topoview/manifests/10-prometheus-config.yaml
-    - cr:
-        path: topoview/manifests/11-prometheus.yaml
-    - cr:
         path: topoview/manifests/20-grafana-config.yaml
     - cr:
         path: topoview/manifests/21-grafana.yaml
-    # NOTE: 30-exports.yaml (prom.eda.nokia.com Export CRs) is NOT a bundle
-    # component -- an EDA app may not ship foreign-group CRs. The controller
-    # creates those Exports at runtime instead (see _ensure_exports).
     - cr:
         path: topoview/manifests/40-grafana-httpproxy.yaml
     - cr:
@@ -66,6 +60,3 @@ spec:
   dependencies:
     - file:
         path: topoview/api
-  requirements:
-    - appId: prom.eda.nokia.com
-      version: v6.0.*
