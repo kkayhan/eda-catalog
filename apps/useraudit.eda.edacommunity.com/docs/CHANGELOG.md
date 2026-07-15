@@ -6,6 +6,18 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-1
+
+- **Re-baselined to target EDA 26.4.1** (validated on a live 26.4.1 cluster); the
+  suffix restarts at `-1`. Code is backward-compatible with 26.4.3.
+- Fix first-run Keycloak auth across EDA releases. The controller hardcoded the
+  Keycloak base at `/core/httpproxy/v1/keycloak`; on some 26.4.1 deployments that
+  path 404s (Keycloak is routed at `/core/proxy/v1/identity`), aborting init before
+  any token is acquired. It now probes candidate bases once (unauthenticated
+  `.well-known`) and pins the one that answers, so it works regardless of the
+  cluster's Keycloak routing. Auth failures now log the exact URL + HTTP status.
+- Carries forward the `?size=1` transaction-summary fix from v26.4.3-2.
+
 ## v26.4.3-2
 
 - Fix first-run initialization against EDA **26.4.1**. `discover_current_watermark()`
