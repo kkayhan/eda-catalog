@@ -1,5 +1,20 @@
 # Changelog
 
+## v26.4.1-2
+
+- **Edge-interface lists moved off the links for upper-tier switches.** Border-leaf
+  (and spine) host-facing interfaces were listed in a single column *below* the
+  switch — directly on top of its downward inter-switch links, which made them
+  overlap and hard to read. They are now placed to the **side** of the switch
+  (outer left/right half) as a compact grid: at most 3 rows, growing into more
+  columns as ports are added, so the list expands sideways into free canvas space
+  instead of over the links. Left-half switches get a left card, right-half a right
+  card; the canvas widens automatically if a side card would spill past the margin.
+- **Leaf switches are unchanged** — their edge interfaces still grow as a single
+  vertical column beneath each leaf (nothing sits below a leaf to collide with).
+- Rendering only; no data, CRD, or datasource changes. Fully compatible with the
+  same EDA releases as v26.4.1-1 (validated on a live 26.4.1 cluster).
+
 ## v26.4.1-1
 
 - **Re-baselined to target EDA 26.4.1** (validated on a live 26.4.1 cluster); the
