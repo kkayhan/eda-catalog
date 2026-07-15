@@ -6,6 +6,19 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-2
+
+- Fix the `HttpProxy` component missing `namespace: eda-system`. Store installs
+  inject it, but a direct `kubectl apply` landed it in the `default` namespace,
+  where eda-api doesn't route it, so `/core/httpproxy/v1/useraudit/…` returned 404.
+- Quiet log noise introduced in v26.4.1-1: the transaction look-ahead scan probes
+  not-yet-existing ids (expected 404s) — those are now logged at debug, not warning.
+  Server errors (5xx) and token-request failures are still warned.
+- Stop the per-poll Keycloak 500. EDA 26.4.1's Keycloak rejects the admin-events
+  `resourceTypes` filter with HTTP 500; after the first rejection the app drops the
+  filter and fetches all resource types (the same client-side filtering still applies),
+  so admin events are collected without an error every cycle.
+
 ## v26.4.1-1
 
 - **Re-baselined to target EDA 26.4.1** (validated on a live 26.4.1 cluster); the
