@@ -1,0 +1,62 @@
+apiVersion: core.eda.nokia.com/v1
+kind: Manifest
+metadata:
+  name: grafana
+spec:
+  group: grafana.eda.edacommunity.com
+  version: v1alpha1
+  title: EDA Grafana
+  description: |
+    Self-contained fabric-topology telemetry app. Install it once and it bundles
+    a Grafana stack, auto-detects every EDA namespace that has a fabric, and
+    generates a live Grafana topology dashboard for each one straight from the
+    TopoNode/TopoLink CRs. Border-leaf switches render on the top row, spines in
+    the middle, leaves at the bottom, with dual-half directional links showing
+    per-direction throughput and up/down state. Live telemetry is read directly
+    from EDA via EQL (no Prometheus, no external dependencies). Open the read-only
+    Grafana (no login), pick a namespace from the main menu, and see its fabric.
+    When the topology changes -- a node or link added, removed, or re-cabled --
+    the dashboard regenerates automatically.
+  author: EDACommunity
+  image: ghcr.io/kkayhan/edaapp_grafana/grafana-app:v26.4.1-5
+  supportedCoreVersions:
+    - "v5.0.0-0"
+  appInfo:
+    categories:
+      - integrations
+    documentation: grafana/docs
+    ociSpecVersion: v1.0.0
+  components:
+    - crd:
+        api:
+          expose: readWrite
+        path: grafana/crds/grafana.eda.edacommunity.com_grafanaconfigs.yaml
+        schema: grafana/openapiv3/eda_oas_grafana.eda.edacommunity.com_grafanaconfigs.json
+        namespaced: false
+        ui:
+          category: Grafana
+          name: Config
+        names:
+          kind: GrafanaConfig
+          listKind: GrafanaConfigList
+          plural: grafanaconfigs
+          singular: grafanaconfig
+    # Everything installs into eda-system (EDA apps can't create + populate a
+    # custom namespace in one transaction). Order: RBAC/secret, then Grafana,
+    # then the HttpProxy, then the controller Deployment + Service last. Live
+    # telemetry comes from EQL via the controller -- no Prometheus, no Exports.
+    - cr:
+        path: grafana/manifests/rbac.yaml
+    - cr:
+        path: grafana/manifests/01-grafana-secret.yaml
+    - cr:
+        path: grafana/manifests/20-grafana-config.yaml
+    - cr:
+        path: grafana/manifests/21-grafana.yaml
+    - cr:
+        path: grafana/manifests/40-grafana-httpproxy.yaml
+    - cr:
+        path: grafana/manifests/app_deployment.yaml
+  dependencies:
+    - file:
+        path: grafana/api
