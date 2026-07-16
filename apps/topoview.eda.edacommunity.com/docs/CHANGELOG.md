@@ -1,5 +1,22 @@
 # Changelog
 
+## v26.4.1-3
+
+- **Fix blank link/interface throughput on clusters that route Keycloak at
+  `/core/proxy/v1/identity`.** The controller hardcoded the Keycloak base
+  `/core/httpproxy/v1/keycloak`; on EDA deployments that expose identity at
+  `/core/proxy/v1/identity` instead, every token request 404'd, so the EQL
+  telemetry fetch failed and all in/out bps rendered blank (the topology still
+  drew). `auth.py` now **probes the candidate Keycloak bases once and pins the
+  working one** (`_ensure_kc_base`) — no route assumption.
+- **Password-free EDA API auth via a self-provisioned service account.** Replaced
+  the `eda-realm-auth-secret` password grant (an `admin/admin` bootstrap seed that
+  401s once the operator changes the EDA admin password) with a dedicated
+  `eda-topoview` Keycloak service-account client (client_credentials), provisioned
+  via the KC master admin. Self-healing and revocable. RBAC no longer needs
+  `eda-realm-auth-secret`. Same approach proven by `edaapp_UserAudit`.
+- Rendering unchanged from v26.4.1-2 (side-placed border-leaf/spine edge lists).
+
 ## v26.4.1-2
 
 - **Edge-interface lists moved off the links for upper-tier switches.** Border-leaf
