@@ -1,5 +1,26 @@
 # Changelog
 
+## v26.4.1-4
+
+- **Show server-facing LAGs on leaf switches.** EDA models access LAGs (dual-homed
+  server connections) as `interfaces.eda.nokia.com` Interface CRs of `spec.type: lag`
+  — **not** as edge TopoLinks. TopoView only read TopoLinks, so these access ports were
+  invisible on the leaves (only the border leaves, whose edge ports *do* have edge
+  TopoLinks, rendered). The controller now also reads Interface CRs and lists each
+  **active** LAG's member ports as host-facing edge cards under its leaf, so live
+  throughput shows for them like any other port.
+  - **Active only**: LAGs whose `status.operationalState` is `down` are hidden;
+    `up`/`degraded` are shown (matches the operator's choice for a fabric with ~44 LAGs).
+  - **Display vs telemetry**: the card shows the LAG's name (e.g. `lag1`) while keying
+    in/out bps + oper-state on the physical member port (`ethernet-1/N`), which the EQL
+    feed already reports — no new telemetry, no datasource change.
+  - **No double-listing**: a member port that is already an inter-switch endpoint, or
+    already surfaced via an edge TopoLink, is not repeated (dedup by node+interface).
+  - Leaf edge lists stay a single column beneath the leaf (canvas grows to fit); the
+    border-leaf/spine side-grid layout is unchanged. Namespaces without LAGs render
+    byte-for-byte as before. Requires the `interfaces` list RBAC already granted by the
+    app's ClusterRole.
+
 ## v26.4.1-3
 
 - **Fix blank link/interface throughput on clusters that route Keycloak at
