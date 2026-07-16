@@ -22,7 +22,7 @@ spec:
     central image store or data lake; this app is a self-contained alternative for
     labs and PoCs where standing up that external store is unnecessary friction.
   author: EDACommunity
-  image: ghcr.io/kkayhan/edaapp_imagemanager/imagemanager-app:v26.4.2-27
+  image: ghcr.io/kkayhan/eda-catalog/imagemanager-app:v26.4.2-27
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
