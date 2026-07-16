@@ -18,7 +18,7 @@ spec:
     When the topology changes -- a node or link added, removed, or re-cabled --
     the dashboard regenerates automatically.
   author: EDACommunity
-  image: ghcr.io/kkayhan/edaapp_grafana/grafana-app:v26.4.1-5
+  image: ghcr.io/kkayhan/eda-catalog/grafana-app:v26.4.1-5
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
