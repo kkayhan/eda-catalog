@@ -64,7 +64,7 @@ spec:
       catalog: community-apps
       version:
         type: semver
-        value: "v26.4.1-2"
+        value: "v26.4.1-5"
 ```
 
 ```bash
