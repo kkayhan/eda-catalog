@@ -32,12 +32,14 @@ Apply this Catalog CR to register the app in your EDA App Store:
 apiVersion: appstore.eda.nokia.com/v1
 kind: Catalog
 metadata:
-  name: community-apps
+  name: kkayhan-catalog
   namespace: eda-system
 spec:
-  remoteURL: https://github.com/kkayhan/edaapp_UserAudit.git
-  skipTLSVerify: false
-  title: Community EDA Apps
+  enabled: true
+  remoteType: git
+  remoteURL: https://github.com/kkayhan/eda-catalog.git
+  refreshInterval: 180
+  title: kkayhan community catalog
 ```
 
 ```bash
@@ -61,7 +63,7 @@ spec:
   dryRun: false
   apps:
     - appId: useraudit.eda.edacommunity.com
-      catalog: community-apps
+      catalog: kkayhan-catalog
       version:
         type: semver
         value: "v26.4.1-5"
@@ -175,7 +177,7 @@ spec:
   dryRun: false
   apps:
     - appId: useraudit.eda.edacommunity.com
-      catalog: community-apps
+      catalog: kkayhan-catalog
 ```
 
 Or remove through the EDA App Store UI.
