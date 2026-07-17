@@ -6,10 +6,10 @@
 | -------------------- |-----------------------------------------|
 | **Group/Version**    | -{{ app_group }}-/-{{ app_api_version }}-   |
 | **Supported OS**     | -{{ supported_os_versions() }}-  |
-| **Catalog**          | [edacommunity/catalog/imagemanager ][manifest] |
+| **Catalog**          | [kkayhan/eda-catalog/imagemanager][manifest] |
 | **Source Code**      | [kkayhan/edaapp_ImageManager][src]      |
 
-[manifest]: https://github.com/kkayhan/edaapp_ImageManager/tree/main/apps/imagemanager.eda.edacommunity.com
+[manifest]: https://github.com/kkayhan/eda-catalog/tree/main/apps/imagemanager.eda.edacommunity.com
 [src]: https://github.com/kkayhan/edaapp_ImageManager
 
 Upload Nokia NOS images as vendor **`.zip`** files through a web page — the type is detected
