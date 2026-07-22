@@ -15,12 +15,13 @@ spec:
     sign-out activity from the EDA GUI, as well as administrative
     account and access-control changes in Keycloak (user, group,
     and role management). All events are written to monthly log
-    files accessible via the EDA UI or a simple HTTP API, making
+    files accessible via the EDA UI, a simple HTTP API, or a
+    read-only SFTP endpoint (password or SSH-key auth), making
     them easy to integrate with your existing SIEM, compliance
     archival, or change-management workflows. Starts logging
     automatically upon installation with no additional setup required.
   author: EDACommunity
-  image: ghcr.io/kkayhan/eda-catalog/useraudit-app:v26.4.1-5
+  image: ghcr.io/kkayhan/eda-catalog/useraudit-app:v26.4.1-6
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
@@ -50,6 +51,8 @@ spec:
         path: useraudit/manifests/pvc.yaml
     - cr:
         path: useraudit/manifests/service.yaml
+    - cr:
+        path: useraudit/manifests/sftp-service.yaml
     - cr:
         path: useraudit/manifests/httpproxy.yaml
     - cr:

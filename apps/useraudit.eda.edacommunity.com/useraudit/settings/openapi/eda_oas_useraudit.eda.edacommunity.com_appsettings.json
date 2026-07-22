@@ -35,6 +35,25 @@
           "type": "string",
           "title": "Audit log storage size",
           "default": "500Mi"
+        },
+        "sftpPort": {
+          "description": "TCP port on which the read-only SFTP endpoint is exposed outside the\ncluster. The default is intentionally an uncommon port so it cannot\ncollide with services that may claim well-known ports later.",
+          "type": "integer",
+          "title": "SFTP port",
+          "default": 22522,
+          "maximum": 65535,
+          "minimum": 1
+        },
+        "sftpServiceType": {
+          "description": "Kubernetes Service type for the SFTP endpoint. \"LoadBalancer\" joins\nthe shared MetalLB VIP (recommended where EDA already uses one);\n\"NodePort\" exposes a high port on the node IP instead; \"ClusterIP\"\nkeeps SFTP reachable only inside the cluster.",
+          "type": "string",
+          "title": "SFTP service type",
+          "default": "LoadBalancer",
+          "enum": [
+            "LoadBalancer",
+            "NodePort",
+            "ClusterIP"
+          ]
         }
       },
       "x-eda-nokia-com": {
