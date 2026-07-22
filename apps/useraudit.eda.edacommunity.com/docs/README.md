@@ -1,6 +1,6 @@
 # EDA User Audit
 
-Automatically logs all EDA transactions and Keycloak authentication events into monthly audit log files. Provides a read-only HTTP API and a read-only SFTP endpoint for viewing and downloading logs.
+Automatically logs all EDA transactions and Keycloak authentication events into daily audit log files (`EDA-user-events-YYYY-MM-DD.log`). Provides a read-only HTTP API and a read-only SFTP endpoint for viewing and downloading logs.
 
 ## What It Logs
 
@@ -66,7 +66,7 @@ spec:
       catalog: kkayhan-catalog
       version:
         type: semver
-        value: "v26.4.1-6"
+        value: "v26.4.1-7"
 ```
 
 ```bash
@@ -127,8 +127,8 @@ curl -sk $BASE/healthz
 # List log files
 curl -sk $BASE/logs/
 
-# Download current month's log
-curl -sk $BASE/logs/EDA-user-events-2026-05.log
+# Download a specific day's log
+curl -sk $BASE/logs/EDA-user-events-2026-05-04.log
 ```
 
 ### SFTP Endpoint
@@ -138,35 +138,45 @@ SIEM collectors, compliance archivers, and cron-driven pullers that speak
 SFTP natively. The endpoint is a dedicated Kubernetes Service (SFTP runs over
 SSH and cannot ride the HTTP-only EDA HttpProxy):
 
-- **User:** `audit` (SFTP only — no shell, jailed to the log directory, uploads/deletes refused)
-- **Auth:** password (auto-generated at first start, stored in the `useraudit-sftp` Secret)
+- **User:** `readonly` (SFTP only — no shell, jailed to the log directory, uploads/deletes refused)
+- **Auth:** password. Defaults to `readonly`; stored in the `useraudit-sftp` Secret.
 - **Port:** `22522` by default (changeable at install time via the *SFTP port* app setting)
 - **Address:** with the default `LoadBalancer` service type the endpoint joins
   the MetalLB VIP EDA already uses. The live address is published in the CRD
   status field `sftpEndpoint`.
 
-Retrieve the password:
+Retrieve (or confirm) the current password:
 
 ```bash
 kubectl -n eda-system get secret useraudit-sftp -o jsonpath='{.data.password}' | base64 -d
 ```
 
-**Examples:**
+To change it, edit that Secret's `password` key (the new value is applied on the
+next pod restart):
+
+```bash
+kubectl -n eda-system patch secret useraudit-sftp \
+  -p "{\"stringData\":{\"password\":\"$(openssl rand -base64 18)\"}}"
+kubectl -n eda-system rollout restart deployment eda-useraudit
+```
+
+**Examples** — the options below stop your SSH client from *saving* the server's
+host key to `known_hosts`, so you never have to clear a stale entry after an
+app reinstall (the endpoint's identity may change on a fresh install):
 
 ```bash
 # Interactive
-sftp -P 22522 audit@<eda-vip>
+sftp -P 22522 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null readonly@<eda-vip>
 
 # Scripted download of everything
-sftp -P 22522 audit@<eda-vip>:/logs/*.log ./archive/
+sftp -P 22522 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+  readonly@<eda-vip>:/logs/*.log ./archive/
 
-# Batch-friendly with lftp
-lftp -u audit -p '<password>' sftp://<eda-vip>:22522 -e 'mget /logs/*.log; quit'
+# Batch-friendly with lftp (host-key check disabled)
+lftp -u readonly,readonly \
+  -e 'set sftp:auto-confirm yes; set ssl:verify-certificate no; mget /logs/*.log; quit' \
+  sftp://<eda-vip>:22522
 ```
-
-The SSH host key is persisted in the `useraudit-sftp` Secret, so the server
-identity stays stable across pod restarts and upgrades (no host-key warnings
-for your collectors).
 
 ### CRD Status
 

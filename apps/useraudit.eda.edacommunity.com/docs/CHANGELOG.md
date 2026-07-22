@@ -6,6 +6,19 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-7
+
+- Log files are now written **per day** (`EDA-user-events-YYYY-MM-DD.log`) instead
+  of per month. Retention is still configured in months (`retentionMonths`), and
+  pre-existing monthly files still age out correctly.
+- SFTP: the default login is now **user `readonly`, password `readonly`** (was a
+  random-generated password for user `audit`). The password still lives in the
+  `useraudit-sftp` Secret and can be changed there; the new value is applied on the
+  next controller restart.
+- Docs: SFTP examples now use `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`
+  so clients don't persist the endpoint's host key — a fresh app reinstall can change
+  that identity, and not pinning it avoids a painful `known_hosts` cleanup later.
+
 ## v26.4.1-6
 
 - New: read-only SFTP endpoint for audit log collection, alongside the existing
