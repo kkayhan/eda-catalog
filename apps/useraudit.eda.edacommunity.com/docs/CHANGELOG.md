@@ -16,12 +16,14 @@ an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
   joins EDA's shared MetalLB VIP (`metallb.universe.tf/allow-shared-ip`);
   service type and port are configurable at install time (new app settings
   `sftpPort`, `sftpServiceType`).
-- Credentials: password auto-generated on first start and persisted in the
-  `useraudit-sftp` Secret together with the SSH host keys (stable host identity
-  across restarts). SSH public keys can be added at runtime via the new
-  `UserAuditConfig.spec.sftpAuthorizedKeys` field — the controller reconciles
-  them into the Secret, effective within about a minute, no restart.
+- Credentials: password authentication. The password is auto-generated on first
+  start and persisted in the `useraudit-sftp` Secret together with the SSH host
+  keys (stable host identity across restarts). Retrieve it with
+  `kubectl -n eda-system get secret useraudit-sftp -o jsonpath='{.data.password}' | base64 -d`.
 - CRD status now reports the live endpoint in `status.sftpEndpoint`.
+- The sidecar populates its chroot jail with the `/dev` nodes and account files
+  `internal-sftp` requires after chroot, so SFTP starts correctly on runtimes
+  (e.g. Talos) whose containers don't pre-populate a usable `/dev`.
 
 ## v26.4.1-5
 

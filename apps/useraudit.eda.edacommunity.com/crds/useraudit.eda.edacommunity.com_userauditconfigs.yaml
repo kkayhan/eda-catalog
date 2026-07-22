@@ -52,15 +52,6 @@ spec:
                   means unlimited.
                 minimum: 0
                 type: integer
-              sftpAuthorizedKeys:
-                description: |-
-                  SftpAuthorizedKeys lists SSH public keys (OpenSSH authorized_keys
-                  format, one key per entry) allowed to log in to the read-only SFTP
-                  endpoint as user "audit". Password authentication remains available
-                  regardless; the password lives in the useraudit-sftp Secret.
-                items:
-                  type: string
-                type: array
             type: object
           status:
             description: UserAuditConfigStatus defines the observed state of UserAuditConfig

@@ -139,22 +139,16 @@ SFTP natively. The endpoint is a dedicated Kubernetes Service (SFTP runs over
 SSH and cannot ride the HTTP-only EDA HttpProxy):
 
 - **User:** `audit` (SFTP only — no shell, jailed to the log directory, uploads/deletes refused)
+- **Auth:** password (auto-generated at first start, stored in the `useraudit-sftp` Secret)
 - **Port:** `22522` by default (changeable at install time via the *SFTP port* app setting)
 - **Address:** with the default `LoadBalancer` service type the endpoint joins
   the MetalLB VIP EDA already uses. The live address is published in the CRD
   status field `sftpEndpoint`.
 
-**Password** — auto-generated at first start, stored in the `useraudit-sftp` Secret:
+Retrieve the password:
 
 ```bash
 kubectl -n eda-system get secret useraudit-sftp -o jsonpath='{.data.password}' | base64 -d
-```
-
-**SSH public keys** — add to the `UserAuditConfig` CR (takes effect within ~1 minute, no restart):
-
-```bash
-kubectl patch userauditconfig default --type=merge \
-  -p '{"spec":{"sftpAuthorizedKeys":["ssh-ed25519 AAAA... collector@siem"]}}'
 ```
 
 **Examples:**
@@ -167,11 +161,12 @@ sftp -P 22522 audit@<eda-vip>
 sftp -P 22522 audit@<eda-vip>:/logs/*.log ./archive/
 
 # Batch-friendly with lftp
-lftp -u audit sftp://<eda-vip>:22522 -e 'mget /logs/*.log; quit'
+lftp -u audit -p '<password>' sftp://<eda-vip>:22522 -e 'mget /logs/*.log; quit'
 ```
 
-The SSH host key is persisted in the same Secret, so the server identity
-stays stable across pod restarts and upgrades.
+The SSH host key is persisted in the `useraudit-sftp` Secret, so the server
+identity stays stable across pod restarts and upgrades (no host-key warnings
+for your collectors).
 
 ### CRD Status
 
