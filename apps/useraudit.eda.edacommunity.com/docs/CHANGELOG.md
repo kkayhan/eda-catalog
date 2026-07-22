@@ -6,6 +6,48 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-8
+
+Reliability release — fixes from a full code review. No new features, no
+CRD/app-settings changes.
+
+- **Fixed: log cleanup silently stopped after the last day of a month.** The
+  daily 3 AM scheduler computed "tomorrow" in a way that crashes on month
+  boundaries (e.g. July 31), permanently killing the cleanup thread until the
+  pod restarted. Retention and the 90%-disk guard now keep running, and the
+  cleanup thread additionally survives any unexpected error.
+- **Fixed: backend outages were invisible in health.** A full EDA API or
+  Keycloak outage previously still reported `health: ok / All systems
+  operational` — connection errors were misread as "no new transactions" / "no
+  new events". Outages now surface as `degraded`/`error` with the failing
+  subsystem named, and the stale-poll detector works again. Watermarks are
+  untouched during an outage, so nothing is lost or duplicated on recovery.
+- **Fixed: a transaction with an unparseable timestamp could permanently stall
+  transaction auditing** (the poll cycle failed before the watermark advanced
+  past it, then re-hit it every cycle). Unparseable timestamps now degrade to
+  the observation time and processing continues.
+- **Fixed: a transient API failure during first-run initialization could reset
+  the transaction watermark to 0**, causing the next healthy cycle to replay the
+  entire transaction history into the audit log. First-run init now retries
+  instead.
+- **Hardened against transient Kubernetes API errors** (state ConfigMap reads,
+  CR reads/status updates): the controller now skips the cycle and retries
+  instead of crashing, and a corrupt state ConfigMap can no longer crash-loop
+  the pod (cache fields self-heal; corrupt watermarks are reported clearly).
+- **Hardened against a full log volume:** audit-log write failures no longer
+  crash the controller; they hold the watermarks (so no events are dropped),
+  and report `error` health with the reason in the CRD status.
+- **Fixed: watermark updates could be lost when the poll loop and the cleanup
+  thread wrote state simultaneously** (a rare race causing duplicate audit
+  lines the next cycle). State writes are now serialized.
+- **Audit accuracy:** Keycloak realm updates are now logged as "Realm settings
+  have been modified." instead of the misleading fixed text "Password policy
+  has been modified." (which every fresh install triggered once via the app's
+  own event enablement).
+- Minor: `/logs/` file download now serves only `.log` files; internal files
+  (e.g. `.healthz.json`) return 404. Removed a wasted per-transaction API call
+  for resources without a namespace.
+
 ## v26.4.1-7
 
 - Log files are now written **per day** (`EDA-user-events-YYYY-MM-DD.log`) instead

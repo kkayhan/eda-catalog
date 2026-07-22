@@ -66,7 +66,7 @@ spec:
       catalog: kkayhan-catalog
       version:
         type: semver
-        value: "v26.4.1-7"
+        value: "v26.4.1-8"
 ```
 
 ```bash
