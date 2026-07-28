@@ -6,6 +6,53 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-9
+
+Audit-integrity release — fixes from an adversarial multi-agent code review, each
+reproduced against a live EDA 26.4.1 cluster. No new features, no CRD/app-settings
+changes, no infrastructure changes: upgrade by installing the app as usual.
+
+- **Fixed: a transaction caught mid-execution was permanently recorded as "Failed
+  transaction attempt, no changes were made" — and its real changes were never
+  audited.** EDA publishes a transaction summary while it is still `queued`/`running`
+  (measured: ~4 seconds before it flips to `complete`), and anything that was not
+  `complete` + `success` fell into the failure branch while the watermark advanced past
+  it. The audit log therefore asserted the opposite of what happened, and the actual
+  configuration change became unauditable. The poll loop now treats `complete` as the
+  only terminal state (per the core API's `TransactionState`), defers an in-flight
+  transaction to the next cycle without writing a line or moving the watermark, and
+  picks it up with its full change detail once it settles. Genuine failures
+  (`complete` + `success=false`) are still recorded as failures, unchanged. A
+  transaction that never completes is skipped after one hour with an explicit
+  "still in state X" record, so one wedged transaction can never stall auditing.
+- **Fixed: purged transactions fabricated duplicate audit records.** The per-id
+  summary endpoint *rounds up* — an id that no longer exists (EDA prunes old
+  transactions) answers HTTP 200 with the **next surviving** transaction's record,
+  under a different id. The scan trusted the id it asked for, so after any gap it wrote
+  one bogus record per purged id, each carrying a later transaction's user, timestamp
+  and changes. The scan now believes the id the API returns and skips the gap.
+- **Fixed: an authentication outage was silently read as "this transaction does not
+  exist".** Token acquisition can itself fail with HTTP 404 (Keycloak briefly
+  unrouted, or `keycloak-admin-secret` momentarily absent). That 404 propagated
+  indistinguishably from the endpoint's own 404, so the poll loop skipped the id,
+  advanced the watermark past it and reported healthy. Token failures now raise a
+  distinct `AuthError`, which fails the cycle loudly and leaves the watermark untouched
+  for a clean retry.
+- **Fixed: Keycloak events were silently dropped above 500 per poll.** Both event
+  queries fetched only the newest 500 with no paging and no watermark anchor, then
+  advanced the watermark to the newest event seen — so any burst larger than the
+  window (a login storm, or a backlog after an outage) lost precisely the events an
+  auditor most wants, with no error. Both feeds now page backwards until they reach
+  the persisted watermark, and log a warning if a hard ceiling is ever reached.
+- **Fixed: privilege changes were never audited, and one invalid filter value disabled
+  server-side filtering entirely.** `USER_FEDERATION` is not a member of Keycloak's
+  `ResourceType` enum, so Keycloak rejected the whole admin-events query with HTTP 500
+  (the cause of the 500 documented in v26.4.1-2) and every poll refetched all resource
+  types. The invalid value is gone, and `REALM_ROLE_MAPPING`, `CLIENT_ROLE_MAPPING` and
+  `GROUP_MEMBERSHIP` are now collected and formatted — so role grants/revocations and
+  group-membership changes appear in the audit log with the actor, the subject and the
+  role or group involved.
+
 ## v26.4.1-8
 
 Reliability release — fixes from a full code review. No new features, no
