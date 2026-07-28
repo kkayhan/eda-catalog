@@ -6,6 +6,34 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-10
+
+Back to **HTTP(S) only** — the in-pod SFTP sidecar introduced in v26.4.1-6 is removed.
+
+Why: SFTP delivery belongs outside the cluster. The sidecar meant the app shipped an
+SSH daemon, generated host keys, published a second Service on the EDA VIP, and carried
+a default `readonly`/`readonly` credential — a lot of surface, and all of it inside the
+audited system. Pulling the logs over the existing HTTPS endpoint onto a separate host,
+and serving SFTP from there, is simpler and puts the audit copy **off-cluster** so it
+survives loss of the cluster. Ownership of the SFTP account, password policy, and
+retention moves to whoever owns that host instead of being baked into an app manifest.
+
+Removed:
+- Container `useraudit-sftp` and the `useraudit-sftp` image (`build/sftp/` deleted).
+- `manifests/sftp-service.yaml` (the `LoadBalancer` Service on port 22522) and its
+  manifest component entry.
+- App settings `sftpPort` and `sftpServiceType`.
+- CRD status field `status.sftpEndpoint`, and `k8s.read_service()`, now unused.
+
+Unchanged: everything about how events are collected and written. The HTTP API
+(`/logs`, `/logs/<file>`, `/healthz`) and the daily-file format are exactly as before.
+
+Upgrading from v26.4.1-6…-9: applying the new manifests drops the pod to a single
+container and removes the SFTP Service. The `useraudit-sftp` Secret is *not* deleted by
+the upgrade — remove it by hand once nothing depends on it:
+`kubectl -n eda-system delete secret useraudit-sftp`. Audit data on the PVC is untouched.
+See the README for the recommended external relay pattern.
+
 ## v26.4.1-9
 
 Audit-integrity release — fixes from an adversarial multi-agent code review, each

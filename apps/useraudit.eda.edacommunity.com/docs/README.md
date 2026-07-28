@@ -1,6 +1,6 @@
 # EDA User Audit
 
-Automatically logs all EDA transactions and Keycloak authentication events into daily audit log files (`EDA-user-events-YYYY-MM-DD.log`). Provides a read-only HTTP API and a read-only SFTP endpoint for viewing and downloading logs.
+Automatically logs all EDA transactions and Keycloak authentication events into daily audit log files (`EDA-user-events-YYYY-MM-DD.log`). Provides a read-only HTTP API for viewing and downloading logs.
 
 ## What It Logs
 
@@ -131,52 +131,28 @@ curl -sk $BASE/logs/
 curl -sk $BASE/logs/EDA-user-events-2026-05-04.log
 ```
 
-### SFTP Endpoint
+### Need SFTP? Relay it from outside the cluster
 
-The same log directory is also served over **read-only SFTP** — convenient for
-SIEM collectors, compliance archivers, and cron-driven pullers that speak
-SFTP natively. The endpoint is a dedicated Kubernetes Service (SFTP runs over
-SSH and cannot ride the HTTP-only EDA HttpProxy):
+The app serves **HTTP(S) only**. An in-pod SFTP sidecar existed in v26.4.1-6 …
+v26.4.1-9 and was **removed in v26.4.1-10**: it required an SSH daemon, host
+keys, a second Service on the EDA VIP, and a default password shipped inside the
+app. Relaying from outside is both simpler and safer, and it keeps the audit
+copy off-cluster so it survives loss of the cluster.
 
-- **User:** `readonly` (SFTP only — no shell, jailed to the log directory, uploads/deletes refused)
-- **Auth:** password. Defaults to `readonly`; stored in the `useraudit-sftp` Secret.
-- **Port:** `22522` by default (changeable at install time via the *SFTP port* app setting)
-- **Address:** with the default `LoadBalancer` service type the endpoint joins
-  the MetalLB VIP EDA already uses. The live address is published in the CRD
-  status field `sftpEndpoint`.
+Recommended pattern — a cron job on any Linux host that can reach EDA over
+HTTPS, serving its own SFTP:
 
-Retrieve (or confirm) the current password:
+1. `GET $BASE/logs` to list; the JSON gives `name` and `size_bytes`.
+2. Re-fetch only files whose `size_bytes` differs from the local copy. The
+   current day's file grows; finished days never change again.
+3. Download to a temp file and `mv` it into place, so a collector never reads a
+   half-written file.
+4. Serve that directory with the host's own SFTP (OpenSSH `internal-sftp` with
+   `ChrootDirectory` works well), where the account, password policy, and
+   retention are owned by the host, not by an app manifest.
 
-```bash
-kubectl -n eda-system get secret useraudit-sftp -o jsonpath='{.data.password}' | base64 -d
-```
-
-To change it, edit that Secret's `password` key (the new value is applied on the
-next pod restart):
-
-```bash
-kubectl -n eda-system patch secret useraudit-sftp \
-  -p "{\"stringData\":{\"password\":\"$(openssl rand -base64 18)\"}}"
-kubectl -n eda-system rollout restart deployment eda-useraudit
-```
-
-**Examples** — the options below stop your SSH client from *saving* the server's
-host key to `known_hosts`, so you never have to clear a stale entry after an
-app reinstall (the endpoint's identity may change on a fresh install):
-
-```bash
-# Interactive
-sftp -P 22522 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null readonly@<eda-vip>
-
-# Scripted download of everything
-sftp -P 22522 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-  readonly@<eda-vip>:/logs/*.log ./archive/
-
-# Batch-friendly with lftp (host-key check disabled)
-lftp -u readonly,readonly \
-  -e 'set sftp:auto-confirm yes; set ssl:verify-certificate no; mget /logs/*.log; quit' \
-  sftp://<eda-vip>:22522
-```
+`logs/pull-audit-logs.sh` in the source repo implements steps 1–3 in pure
+`bash` + `curl`.
 
 ### CRD Status
 
@@ -184,7 +160,7 @@ lftp -u readonly,readonly \
 kubectl get userauditconfig default -o yaml
 ```
 
-Reports: `health`, `subsystems` (edaApi, keycloakEvents), `lastPollTime`, `lastTransactionId`, `transactionsProcessed`, `kcEventsProcessed`, `logFiles`, `sftpEndpoint`, `version`.
+Reports: `health`, `subsystems` (edaApi, keycloakEvents), `lastPollTime`, `lastTransactionId`, `transactionsProcessed`, `kcEventsProcessed`, `logFiles`, `version`.
 
 ## Configuration
 

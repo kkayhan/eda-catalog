@@ -96,11 +96,6 @@ spec:
                 description: Message is a human-readable explanation of the current
                   health state.
                 type: string
-              sftpEndpoint:
-                description: |-
-                  SftpEndpoint is where the read-only SFTP service is reachable
-                  (user "audit"), e.g. "audit@100.124.177.212 port 22522".
-                type: string
               subsystems:
                 description: Subsystems reports the health of each data source.
                 properties:
