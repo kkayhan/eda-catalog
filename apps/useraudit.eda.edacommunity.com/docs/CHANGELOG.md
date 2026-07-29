@@ -6,6 +6,46 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-13
+
+Least privilege for the controller itself. No functional change; the app does
+exactly what it did before, with far less authority to do anything else.
+
+**Kubernetes permissions.** The controller's `ClusterRole` was
+`apiGroups/resources/verbs: ["*"]` — cluster-admin, able to read every Secret in
+the cluster. It is now a namespaced `Role` in `eda-system` granting `get` on three
+Secrets *by name* (`eda-api-ca`, `keycloak-admin-secret`, `eda-useraudit-client`),
+`get`/`update` on its own `useraudit-state` ConfigMap, plus a small `ClusterRole`
+for its own cluster-scoped CRD. (`create` cannot be name-scoped in Kubernetes RBAC,
+so the two create rules remain per-resource-type.)
+
+**EDA permissions.** The controller granted its own Keycloak service account
+`edarole_system-administrator` — readWrite on every resource, table and URL — for
+an app that only ever reads. It now holds `edarole_useraudit-controller`, backed by
+a new shipped `useraudit-controller` EDA `ClusterRole`: `resourceRules` read-only
+and URL access limited to `/core/transaction/**`. Writes are refused.
+
+`resourceRules` stays `* read` deliberately: EDA gates transaction detail on read
+access to a transaction's *input* resources, and any resource kind can appear in a
+transaction. Narrowing it would quietly blank out parts of the audit trail instead
+of failing loudly.
+
+**Upgrading is automatic, and actually takes effect.** The runtime path
+authenticates with a stored credential and skips provisioning, so simply changing
+the role would have left the existing account untouched and administrative. The
+stored Secret now carries a `roleProfile` marker; on first start after upgrade the
+controller re-provisions exactly once, grants the new role, and **revokes**
+`edarole_system-administrator`. The revoke is ordered after the grant, so a failure
+can never strip the account of its only access.
+
+The controller also creates the `edarole_useraudit-controller` Keycloak realm role
+if it is missing. EDA materialises `edarole_*` roles lazily — only when an
+administrator assigns the ClusterRole to a user *group* — and this one is bound
+directly to a service account, so on a fresh install it would otherwise never exist.
+
+Unchanged: what is collected, the log format, the CRD, app settings, and the
+endpoint access model from v26.4.1-11/-12.
+
 ## v26.4.1-12
 
 Ships the **`useraudit-reader`** EDA `ClusterRole` with the app, so a machine
