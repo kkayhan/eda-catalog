@@ -61,12 +61,16 @@ environment (`EDA_USERNAME`, `EDA_PASSWORD`, optionally `EDA_CLIENT_SECRET` or a
 ready-made `EDA_TOKEN`). It remains pure `bash` + `curl`.
 
 The docs now also cover the recommended setup for log collectors: a **dedicated
-read-only account** rather than an administrator. Membership of
-`system-administrator` cannot be made read-only — that group exists to carry a
+account scoped to this endpoint alone** rather than an administrator. Membership
+of `system-administrator` cannot be made read-only — that group exists to carry a
 role granting `resourceRules: * readWrite` and `urlRules: /** readWrite`, so a
 "read-only member" is a contradiction. The README walks through creating a
-`readonly` ClusterRole, a group carrying it, and a user in that group, including
-the four `400`s the admin API returns if you try to combine those steps.
+`useraudit-reader` ClusterRole whose only permission is a URL rule for
+`/core/httpproxy/v1/useraudit`, a group carrying it, and a user in that group —
+including the five `400`s the admin API returns if you try to combine those steps.
+
+Net effect on the endpoint: no token `400`, any other authenticated user `403`,
+administrators and members of the reader group `200`.
 
 No change to event collection, the log format, the CRD, or app settings.
 

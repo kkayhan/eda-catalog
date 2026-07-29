@@ -150,24 +150,25 @@ Instead give the collector its own role, group, and user. Roles attach to
 admin API (`$EDA` and `$TOKEN` as above, from an administrator):
 
 ```bash
-# 1. A role. This one is read-only across all of EDA; to scope it strictly to the
-#    audit log, drop resourceRules/tableRules and use the narrow urlRules path
-#    from the audit-log-reader example above.
+# 1. A role granting ONLY this endpoint. No resourceRules and no tableRules, so the
+#    account has no access to any EDA resource or EDB table. Both paths are listed:
+#    the bare path and the /** subtree.
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   "$EDA/core/admin/roles" -d '{
-    "name": "readonly", "namespace": "eda-system",
-    "description": "Read-only access to all of EDA. No write anywhere.",
-    "resourceRules": [{"apiGroups":["*"],"resources":["*"],"permissions":"read"}],
-    "tableRules":    [{"path":".**","permissions":"read"}],
-    "urlRules":      [{"path":"/**","permissions":"read"}]}'
+    "name": "useraudit-reader", "namespace": "eda-system",
+    "description": "Read the EDA User Audit log endpoint and nothing else.",
+    "urlRules": [
+      {"path":"/core/httpproxy/v1/useraudit",    "permissions":"read"},
+      {"path":"/core/httpproxy/v1/useraudit/**", "permissions":"read"}]}'
 
 # 2. A group, then attach the role (roles cannot be set when creating a group).
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  "$EDA/core/admin/groups" -d '{"name":"readonly","description":"Read-only across EDA."}'
+  "$EDA/core/admin/groups" -d '{"name":"useraudit-readers",
+    "description":"Members may read the User Audit log endpoint only."}'
 GUUID=$(curl -sk -H "Authorization: Bearer $TOKEN" "$EDA/core/admin/groups" \
-  | jq -r '.[]|select(.name=="readonly").uuid')
+  | jq -r '.[]|select(.name=="useraudit-readers").uuid')
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  "$EDA/core/admin/groups/$GUUID/roles" -d '["readonly"]'
+  "$EDA/core/admin/groups/$GUUID/roles" -d '["useraudit-reader"]'
 
 # 3. A user, then group membership, then a password — each is its own call.
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -196,6 +197,22 @@ needed on the collector host, just the `eda` client secret:
 EDA_USERNAME=useraudit-readonly EDA_PASSWORD=... EDA_CLIENT_SECRET=... \
   ./pull-audit-logs.sh https://<eda-address> /var/audit-archive
 ```
+
+What that account ends up with, verified on EDA 26.4.1:
+
+| request | result |
+|---------|--------|
+| the User Audit endpoint (`/healthz`, `/logs`, `/logs/<file>`) | `200` |
+| any EDA resource, e.g. `toponodes` | `403` |
+| user/group administration | `403` |
+| any write, anywhere — including resetting its own password | `403` |
+| transaction *metadata* (`/core/transaction/v2/result/summary`) | `200` — id, timestamp, username, success |
+| transaction content: input resources, node config diffs, execution detail | no content — `inputCrs: [], limitedAccess: true`, or `403` |
+
+The transaction-metadata row is EDA's own behaviour, not a gap in the role: summaries
+are not URL-rule gated, while everything with configuration content in it is gated by
+resource rules the account does not have. The visible fields are the same ones the
+audit log already contains, so the account learns nothing extra.
 
 Note that EDA strips the token before forwarding, so the app cannot see who
 called it and does not record log downloads. Note also that a browser cannot open
