@@ -120,8 +120,9 @@ path, and the only role shipped with one is the default `system-administrator`
 `ClusterRole` (`/**`, `readWrite`). Roles are granted through user groups, so
 access means membership of the **`system-administrator`** user group.
 
-To let another group read the audit log, create a `ClusterRole` with a narrow URL
-rule and assign it to that group — the app itself needs no change:
+To let another group read the audit log, create a `ClusterRole` with a URL rule
+covering the endpoint and assign it to that group — the app itself needs no
+change:
 
 ```yaml
 apiVersion: core.eda.nokia.com/v1
@@ -134,6 +135,66 @@ spec:
   urlRules:
     - path: /core/httpproxy/v1/useraudit/**
       permissions: read
+```
+
+### Recommended: a dedicated read-only account for collectors
+
+Do **not** put a log-collector account in the `system-administrator` group. That
+group exists to carry the `system-administrator` ClusterRole, which grants
+`resourceRules: * readWrite` and `urlRules: /** readWrite` — membership *is* full
+write access to EDA, and there is no way to attenuate it per user. A cron job
+that only pulls files should not hold it.
+
+Instead give the collector its own role, group, and user. Roles attach to
+**groups**, not directly to users, so all three pieces are needed. Using EDA's
+admin API (`$EDA` and `$TOKEN` as above, from an administrator):
+
+```bash
+# 1. A role. This one is read-only across all of EDA; to scope it strictly to the
+#    audit log, drop resourceRules/tableRules and use the narrow urlRules path
+#    from the audit-log-reader example above.
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  "$EDA/core/admin/roles" -d '{
+    "name": "readonly", "namespace": "eda-system",
+    "description": "Read-only access to all of EDA. No write anywhere.",
+    "resourceRules": [{"apiGroups":["*"],"resources":["*"],"permissions":"read"}],
+    "tableRules":    [{"path":".**","permissions":"read"}],
+    "urlRules":      [{"path":"/**","permissions":"read"}]}'
+
+# 2. A group, then attach the role (roles cannot be set when creating a group).
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  "$EDA/core/admin/groups" -d '{"name":"readonly","description":"Read-only across EDA."}'
+GUUID=$(curl -sk -H "Authorization: Bearer $TOKEN" "$EDA/core/admin/groups" \
+  | jq -r '.[]|select(.name=="readonly").uuid')
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  "$EDA/core/admin/groups/$GUUID/roles" -d '["readonly"]'
+
+# 3. A user, then group membership, then a password — each is its own call.
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  "$EDA/core/admin/users" -d '{"username":"useraudit-readonly",
+    "email":"useraudit-readonly@eda.local","firstName":"UserAudit",
+    "lastName":"Reader","enabled":true}'
+UUUID=$(curl -sk -H "Authorization: Bearer $TOKEN" "$EDA/core/admin/users" \
+  | jq -r '.[]|select(.username=="useraudit-readonly").uuid')
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  "$EDA/core/admin/users/$UUUID/groups" -d "[\"$GUUID\"]"
+curl -sk -X PUT  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  "$EDA/core/admin/users/$UUUID/resetpassword" -d '{"value":"<password>","temporary":false}'
+```
+
+The same thing is available in the UI under **System Administration → User
+Management**. Four constraints in the API are worth knowing, since each returns a
+`400`: a group cannot be created with `roles` (attach them afterwards), a user
+cannot be created with `groups` or `password` (both are separate calls),
+`email`/`firstName`/`lastName` are all mandatory, and Keycloak's name validator
+rejects punctuation such as parentheses in first/last names.
+
+Then point the collector at the new account — no Keycloak admin credentials
+needed on the collector host, just the `eda` client secret:
+
+```bash
+EDA_USERNAME=useraudit-readonly EDA_PASSWORD=... EDA_CLIENT_SECRET=... \
+  ./pull-audit-logs.sh https://<eda-address> /var/audit-archive
 ```
 
 Note that EDA strips the token before forwarding, so the app cannot see who
