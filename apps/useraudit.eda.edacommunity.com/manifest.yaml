@@ -21,7 +21,7 @@ spec:
     logging automatically upon installation with no additional
     setup required.
   author: EDACommunity
-  image: ghcr.io/kkayhan/eda-catalog/useraudit-app:v26.4.1-11
+  image: ghcr.io/kkayhan/eda-catalog/useraudit-app:v26.4.1-12
   supportedCoreVersions:
     - "v5.0.0-0"
   appInfo:
@@ -55,6 +55,8 @@ spec:
         path: useraudit/manifests/httpproxy.yaml
     - cr:
         path: useraudit/manifests/rbac.yaml
+    - cr:
+        path: useraudit/manifests/edarole.yaml
   dependencies:
     - file:
         path: utils

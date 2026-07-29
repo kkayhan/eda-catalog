@@ -6,6 +6,44 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-12
+
+Ships the **`useraudit-reader`** EDA `ClusterRole` with the app, so a machine
+account can read the audit log without being an administrator.
+
+v26.4.1-11 locked the endpoint down to the `system-administrator` group. That is
+correct but blunt: the typical reader is not a person but a machine — an SFTP
+relay host, a SIEM collector — and giving that a full administrator identity is
+exactly what an audit trail should not require. The role grants read on
+`/core/httpproxy/v1/useraudit` and nothing else: no `resourceRules` (no EDA
+resource of any kind) and no `tableRules` (no EDB/EQL access). It installs with
+the app and is removed on uninstall.
+
+The **group and the user are deliberately not shipped, and cannot be**: EDA keeps
+users and groups in Keycloak, not Kubernetes, so there is no resource for an app
+to install. An administrator creates them once, and **chooses the password** — no
+credential is generated, defaulted, or stored by the app, and nothing in the app
+depends on that password. EDA also attaches roles to *groups* rather than to
+users, so the setup is always: create a group holding `useraudit-reader`, create
+the user, add it to the group.
+
+Recommended setup, matching the relay pattern in the README:
+
+1. Install (or upgrade to) this version — the role appears automatically.
+2. Create a group, e.g. `useraudit-readers`, and assign it the `useraudit-reader`
+   role.
+3. Create user `useraudit-readonly` with a password of your choosing, and add it
+   to that group.
+4. Give those credentials to the collector host, which pulls with
+   `logs/pull-audit-logs.sh` and serves its local copy over its own SFTP.
+
+Resulting access to the endpoint is unchanged in shape, just wider by one
+deliberate seat: no token `400`, any other authenticated user `403`, members of
+`system-administrator` `200`, members of a group holding `useraudit-reader` `200`.
+
+No change to event collection, the log format, the CRD, app settings, or the
+controller's behaviour.
+
 ## v26.4.1-11
 
 **Security fix — the audit log endpoint now requires an EDA login, and only

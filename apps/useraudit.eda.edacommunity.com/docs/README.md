@@ -145,23 +145,27 @@ group exists to carry the `system-administrator` ClusterRole, which grants
 write access to EDA, and there is no way to attenuate it per user. A cron job
 that only pulls files should not hold it.
 
-Instead give the collector its own role, group, and user. Roles attach to
-**groups**, not directly to users, so all three pieces are needed. Using EDA's
-admin API (`$EDA` and `$TOKEN` as above, from an administrator):
+Instead give the collector its own group and user, holding the
+**`useraudit-reader`** role that this app installs for you.
+
+That role grants exactly one thing — read access to
+`/core/httpproxy/v1/useraudit` — with no `resourceRules` and no `tableRules`, so
+the account can reach no EDA resource and no EDB table. It is installed with the
+app and removed when the app is uninstalled.
+
+The group and the user are **not** shipped and cannot be: EDA keeps users and
+groups in Keycloak, not Kubernetes, so there is no resource for the app to
+install. An administrator creates them once, and **chooses the password** — the
+app never sees, stores, or defaults it.
+
+Note that EDA attaches roles to **groups**, never directly to users. Granting
+`useraudit-readonly` this role therefore always means "create a group holding the
+role, and put the user in it"; there is no user-level assignment.
+
+Using EDA's admin API (`$EDA` and `$TOKEN` as above, from an administrator):
 
 ```bash
-# 1. A role granting ONLY this endpoint. No resourceRules and no tableRules, so the
-#    account has no access to any EDA resource or EDB table. Both paths are listed:
-#    the bare path and the /** subtree.
-curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  "$EDA/core/admin/roles" -d '{
-    "name": "useraudit-reader", "namespace": "eda-system",
-    "description": "Read the EDA User Audit log endpoint and nothing else.",
-    "urlRules": [
-      {"path":"/core/httpproxy/v1/useraudit",    "permissions":"read"},
-      {"path":"/core/httpproxy/v1/useraudit/**", "permissions":"read"}]}'
-
-# 2. A group, then attach the role (roles cannot be set when creating a group).
+# 1. A group, then attach the shipped role (roles cannot be set when creating a group).
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   "$EDA/core/admin/groups" -d '{"name":"useraudit-readers",
     "description":"Members may read the User Audit log endpoint only."}'
@@ -170,7 +174,8 @@ GUUID=$(curl -sk -H "Authorization: Bearer $TOKEN" "$EDA/core/admin/groups" \
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   "$EDA/core/admin/groups/$GUUID/roles" -d '["useraudit-reader"]'
 
-# 3. A user, then group membership, then a password — each is its own call.
+# 2. A user, then group membership, then a password — each is its own call.
+#    Choose your own password here; nothing about it comes from the app.
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   "$EDA/core/admin/users" -d '{"username":"useraudit-readonly",
     "email":"useraudit-readonly@eda.local","firstName":"UserAudit",
@@ -184,11 +189,13 @@ curl -sk -X PUT  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application
 ```
 
 The same thing is available in the UI under **System Administration → User
-Management**. Four constraints in the API are worth knowing, since each returns a
-`400`: a group cannot be created with `roles` (attach them afterwards), a user
-cannot be created with `groups` or `password` (both are separate calls),
-`email`/`firstName`/`lastName` are all mandatory, and Keycloak's name validator
-rejects punctuation such as parentheses in first/last names.
+Management** — create the group, assign it the `useraudit-reader` role, then
+create the user and add it to the group. Five constraints in the API are worth
+knowing, since each returns a `400`: a group cannot be created with `roles`
+(attach them afterwards), a user cannot be created with `groups` or `password`
+(both are separate calls), `email`/`firstName`/`lastName` are all mandatory, and
+Keycloak's name validator rejects punctuation such as parentheses in first/last
+names.
 
 Then point the collector at the new account — no Keycloak admin credentials
 needed on the collector host, just the `eda` client secret:
@@ -197,6 +204,11 @@ needed on the collector host, just the `eda` client secret:
 EDA_USERNAME=useraudit-readonly EDA_PASSWORD=... EDA_CLIENT_SECRET=... \
   ./pull-audit-logs.sh https://<eda-address> /var/audit-archive
 ```
+
+This is the intended shape for the **SFTP relay** described below: the relay host
+holds the `useraudit-readonly` credentials, pulls with the script on a timer, and
+serves its local copy over its own SFTP. The relay never needs an EDA
+administrator account, and the audit copy ends up off-cluster.
 
 What that account ends up with, verified on EDA 26.4.1:
 
