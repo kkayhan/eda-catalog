@@ -95,11 +95,74 @@ EOF
 # Check the pod is running
 kubectl -n eda-system get pods -l eda.nokia.com/app=eda-useraudit
 
-# Check health
-curl -sk https://<eda-address>/core/httpproxy/v1/useraudit/healthz
+# Check health (needs an EDA token -- see Access control below)
+curl -sk -H "Authorization: Bearer $TOKEN" \
+  https://<eda-address>/core/httpproxy/v1/useraudit/healthz
 ```
 
 ## Usage
+
+### Access control
+
+The log endpoint is protected by EDA itself. The app's `HttpProxy` uses
+`authType: inApiServer`, so the **EDA API server** authenticates and authorizes
+every request before it reaches the app:
+
+| Caller | Result |
+|--------|--------|
+| No bearer token | `HTTP 400` — rejected as unauthenticated |
+| Valid token, not a `system-administrator` | `HTTP 403` — authenticated but not authorized |
+| Valid token, member of `system-administrator` | `HTTP 200` |
+
+Authorization uses EDA RBAC **URL rules**. Reaching
+`/core/httpproxy/v1/useraudit/**` requires a role with a URL rule covering that
+path, and the only role shipped with one is the default `system-administrator`
+`ClusterRole` (`/**`, `readWrite`). Roles are granted through user groups, so
+access means membership of the **`system-administrator`** user group.
+
+To let another group read the audit log, create a `ClusterRole` with a narrow URL
+rule and assign it to that group — the app itself needs no change:
+
+```yaml
+apiVersion: core.eda.nokia.com/v1
+kind: ClusterRole
+metadata:
+  name: audit-log-reader
+  namespace: eda-system
+spec:
+  description: Read-only access to the EDA User Audit log endpoint.
+  urlRules:
+    - path: /core/httpproxy/v1/useraudit/**
+      permissions: read
+```
+
+Note that EDA strips the token before forwarding, so the app cannot see who
+called it and does not record log downloads. Note also that a browser cannot open
+the URL directly: EDA accepts the token only in an `Authorization` header, so
+pasting the URL into a browser returns `HTTP 400`, not a login page. Use `curl`,
+the helper script, or a collector that can set a header.
+
+### Getting a token
+
+Standard EDA API authentication — exchange your EDA username and password for a
+token, using the Keycloak client secret of the `eda` client (ask your EDA
+administrator, or read it from Keycloak):
+
+```bash
+EDA=https://<eda-address>
+TOKEN=$(curl -sk "$EDA/core/httpproxy/v1/keycloak/realms/eda/protocol/openid-connect/token" \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'grant_type=password' \
+  --data-urlencode 'client_id=eda' \
+  --data-urlencode 'scope=openid' \
+  --data-urlencode "client_secret=$EDA_CLIENT_SECRET" \
+  --data-urlencode "username=$EDA_USERNAME" \
+  --data-urlencode "password=$EDA_PASSWORD" | jq -r .access_token)
+```
+
+Tokens last about 5 minutes. On deployments that route Keycloak at
+`/core/proxy/v1/identity` rather than `/core/httpproxy/v1/keycloak`, use that
+path instead.
 
 ### Log Endpoints
 
@@ -120,15 +183,16 @@ https://<eda-address>/core/httpproxy/v1/useraudit/
 ```bash
 EDA=https://<eda-address>
 BASE=$EDA/core/httpproxy/v1/useraudit
+AUTH="Authorization: Bearer $TOKEN"
 
 # Health check
-curl -sk $BASE/healthz
+curl -sk -H "$AUTH" $BASE/healthz
 
 # List log files
-curl -sk $BASE/logs/
+curl -sk -H "$AUTH" $BASE/logs/
 
 # Download a specific day's log
-curl -sk $BASE/logs/EDA-user-events-2026-05-04.log
+curl -sk -H "$AUTH" $BASE/logs/EDA-user-events-2026-05-04.log
 ```
 
 ### Need SFTP? Relay it from outside the cluster
@@ -142,17 +206,19 @@ copy off-cluster so it survives loss of the cluster.
 Recommended pattern — a cron job on any Linux host that can reach EDA over
 HTTPS, serving its own SFTP:
 
-1. `GET $BASE/logs` to list; the JSON gives `name` and `size_bytes`.
-2. Re-fetch only files whose `size_bytes` differs from the local copy. The
+1. Acquire a token as above, for a user in the `system-administrator` group.
+   Tokens expire in ~5 minutes, so fetch one per run rather than caching it.
+2. `GET $BASE/logs` to list; the JSON gives `name` and `size_bytes`.
+3. Re-fetch only files whose `size_bytes` differs from the local copy. The
    current day's file grows; finished days never change again.
-3. Download to a temp file and `mv` it into place, so a collector never reads a
+4. Download to a temp file and `mv` it into place, so a collector never reads a
    half-written file.
-4. Serve that directory with the host's own SFTP (OpenSSH `internal-sftp` with
+5. Serve that directory with the host's own SFTP (OpenSSH `internal-sftp` with
    `ChrootDirectory` works well), where the account, password policy, and
    retention are owned by the host, not by an app manifest.
 
-`logs/pull-audit-logs.sh` in the source repo implements steps 1–3 in pure
-`bash` + `curl`.
+`logs/pull-audit-logs.sh` in the source repo implements steps 1–4 in pure
+`bash` + `curl`, credentials supplied through the environment.
 
 ### CRD Status
 

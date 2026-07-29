@@ -6,6 +6,62 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-11
+
+**Security fix — the audit log endpoint now requires an EDA login, and only
+administrators are allowed in.**
+
+Up to v26.4.1-10 the app's `HttpProxy` used `authType: atDestination`. That name is
+misleading: it means the EDA API server authenticates *nothing* and forwards the
+request as-is, leaving it to the backend. This app's file server had no
+authentication of its own, so **the entire audit log — usernames, source IPs, and
+full configuration diffs — was readable by anyone who could reach the EDA
+address, with no credentials at all.** Verified against a live cluster: an
+unauthenticated `curl` of `/core/httpproxy/v1/useraudit/logs/<file>` returned
+HTTP 200 and the complete log.
+
+The proxy now uses `authType: inApiServer`, which makes the EDA API server the
+enforcement point for both checks:
+
+| Caller | Before | Now |
+|--------|--------|-----|
+| No token | `200` + full log | `400` — rejected as unauthenticated |
+| Valid token, non-administrator | `200` + full log | `403` — authenticated, not authorized |
+| Valid token, `system-administrator` | `200` | `200` |
+
+Authorization is EDA's own RBAC, not app code. Reaching
+`/core/httpproxy/v1/useraudit/**` requires a role carrying a **URL rule** for that
+path; the only role shipped with one is the default `system-administrator`
+`ClusterRole` (`/**`, `readWrite`), and roles are granted through user groups —
+so access means membership of the `system-administrator` group. Because EDA rules
+are additive with implicit deny, an operator can grant another group access by
+creating a `ClusterRole` with a narrow URL rule, without touching the app. Both
+behaviours were confirmed live by adding and removing a test user from the group.
+
+Consequences to be aware of when upgrading:
+
+- **Existing collectors will break** until they send an `Authorization: Bearer`
+  header. Anything scraping the endpoint anonymously — cron jobs, SIEM pollers,
+  monitoring checks on `/healthz` — now gets HTTP 400.
+- **Browsers cannot open the URL.** EDA accepts the token only in a header (not a
+  cookie, not a query parameter), so the URL returns HTTP 400 rather than a login
+  page. Use `curl`, `logs/pull-audit-logs.sh`, or a collector that sets headers.
+- **The app can no longer see who reads the logs.** `inApiServer` strips the token
+  before forwarding, so downloads are not recorded in the audit files themselves;
+  that visibility lives in EDA and Keycloak.
+- Kubernetes health probes are unaffected — they hit the pod directly, not the
+  proxy.
+
+`logs/pull-audit-logs.sh` now performs the full EDA authentication flow: it locates
+Keycloak (handling both the `/core/httpproxy/v1/keycloak` and
+`/core/proxy/v1/identity` layouts), optionally fetches the `eda` client secret,
+exchanges credentials for a token, re-acquires it if it expires mid-run, and
+explains 400/401/403 in terms of what to fix. Credentials come from the
+environment (`EDA_USERNAME`, `EDA_PASSWORD`, optionally `EDA_CLIENT_SECRET` or a
+ready-made `EDA_TOKEN`). It remains pure `bash` + `curl`.
+
+No change to event collection, the log format, the CRD, or app settings.
+
 ## v26.4.1-10
 
 Back to **HTTP(S) only** — the in-pod SFTP sidecar introduced in v26.4.1-6 is removed.
