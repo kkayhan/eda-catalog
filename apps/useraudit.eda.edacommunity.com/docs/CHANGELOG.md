@@ -6,6 +6,36 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-15
+
+Corrects a diagnostic defect introduced in v26.4.1-14. No behavioural change to
+audit collection; upgrading is an in-place image bump.
+
+**The retry announced a recovery it had not performed.** v26.4.1-14 logged
+"reloading CA material and retrying once" *before* consulting the reload's rate
+limit. Reloads are deliberately limited to one per 60 seconds, so within a single
+poll cycle every attempt after the first is suppressed -- and in that case the code
+correctly raises without reloading and without retrying, while the log had already
+claimed it did both. Observed on a lab cluster sitting in a TLS failure: six such
+claims against exactly one real reload.
+
+The suppression itself is right (re-reading a CA fetched seconds earlier cannot
+yield different material, and it protects the Kubernetes API from a read per call).
+Only the reporting was wrong. It now logs what actually happened -- either
+"CA reload SUPPRESSED (trust re-read < 60s ago) -- not retrying", or
+"CA material reloaded, retrying once".
+
+This matters more than a phrasing nit because the feature exists solely to make a
+rare, delayed certificate failure diagnosable. A log asserting a remediation that
+never ran sends the reader towards the CA material or cert-manager when the real
+answer is the rate limit, or a server-side certificate that no longer chains to the
+current CA.
+
+**Bare certificate errors are now caught too.** The retry caught only
+`urllib.error.URLError`, which made the bare-`SSLCertVerificationError` branch of the
+error test unreachable from the retry path -- TLS raised outside urlopen's wrapper
+would have propagated without a reload. Both forms are now handled.
+
 ## v26.4.1-14
 
 Fixes an outage class in which the app silently stops collecting after EDA rotates
