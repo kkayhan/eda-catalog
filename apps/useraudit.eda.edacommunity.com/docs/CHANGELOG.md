@@ -6,6 +6,44 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.4.1-14
+
+Fixes an outage class in which the app silently stops collecting after EDA rotates
+its internal certificate authority.
+
+**What went wrong.** The controller built its TLS trust once, at startup, and cached
+it for the life of the process. EDA's cert-manager renews the `eda-api-ca` CA on a
+roughly 90-day cycle and the eda-api serving certificate on a roughly 30-day one. A
+long-running pod therefore kept working after the CA rotated -- eda-api was still
+serving its older certificate -- and only failed once the first certificate signed by
+the *new* CA was issued. On a customer 26.4.1 cluster that delay was 12 days, which is
+long enough that nothing recent explains the failure.
+
+When it did fail, it failed everywhere at once: both transaction polling and Keycloak
+event collection returned `[SSL: CERTIFICATE_VERIFY_FAILED]`, because Keycloak is
+reached through eda-api. The pod stayed `1/1 Running` with 0 restarts and its poll loop
+kept ticking, reporting `0 transactions, 0 KC events, 0 lines written` every cycle. The
+app correctly set `health: error` on its CRD and on `/healthz`; audit collection was
+nonetheless stopped for 43.7 hours. Restarting the pod was the only remedy.
+
+**The fix.** A certificate-verification failure is now treated the way a 401 already
+was: the CA material is re-read, a fresh TLS context is installed, and the request is
+retried once. Reloads are rate-limited to one per 60 seconds so an unreachable peer
+cannot turn every call into a Kubernetes Secret read, and the Keycloak base-URL probe
+reloads too -- a rotated CA fails every candidate identically, which would otherwise be
+reported as "no Keycloak base found" rather than as a trust problem.
+
+Two details matter for anyone reading the code. `http_json()` and `_http_post_form()`
+no longer accept an SSL context argument; they resolve it per attempt. A caller-hoisted
+context would have made the retry reuse the dead one, so the parameter was removed
+rather than merely left unused. And the existing "no CA loaded, fall back to unverified
+TLS" behaviour is now confined to the first build at startup: on a reload it raises and
+the previous context is kept, so a transient Kubernetes API failure can never quietly
+downgrade a running app to unverified TLS.
+
+No configuration change, no CRD change, and no new permissions. Upgrading is an
+in-place image bump.
+
 ## v26.4.1-13
 
 Least privilege for the controller itself. No functional change; the app does
