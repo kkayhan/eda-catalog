@@ -1,5 +1,21 @@
 # Changelog
 
+## v26.8.2-1
+
+- **Re-baselined to EDA 26.8.2** (core v6). The controller code is identical to
+  v26.4.1-5; the manifest now declares `supportedCoreVersions: v6.0.0` and the bundle
+  is built with edabuilder v26.8.2. The bundled Grafana server image is unchanged
+  (`grafana-server:v26.4.1-2`, Grafana 12.0.2 with the flow-panel and Infinity
+  plugins). Clusters on EDA 26.4.x stay on the v26.4.1 line (branch `line/26.4.1`).
+- Validated on an air-gapped EDA 26.8.2 cluster, installed with `kubectl apply` from
+  the air-gap bundle: external address read from EngineConfig, dashboards generated
+  from TopoNode/TopoLink/Fabric and from v1 `Interface` CRs (26.8 spells the type
+  `LAG`; matched case-insensitively), the self-provisioned `eda-grafana` service
+  account gets an EDA token, and the `/eql/<ns>.json` endpoint answers. The two EQL
+  queries were also checked against a 26.8.2 fabric with live interfaces: rows carry
+  `in-bps`/`out-bps` and `oper-state` under the same keys as on 26.4 (idle or down
+  ports omit the rate fields, which render as 0).
+
 ## v26.4.1-5
 
 - **Renamed the app from "TopoView" to "Grafana".** No functional change — purely an
@@ -69,7 +85,7 @@
 - Fix the follow-on `KeyError` that v26.4.3-4's stale-edge fix exposed. That fix
   dropped stale edges inside `compute_layout`, but `svggen` still iterated the
   model's full edge list and looked up `layout[endpoints]` by index — so the
-  dropped edge's index raised `KeyError` (reported as `KeyError: 8` on the tt-poc
+  dropped edge's index raised `KeyError` (reported as `KeyError: 8` on a production
   fabric) and left the fabric `degraded` with 0 dashboards. Stale edges (a TopoLink
   endpoint with no TopoNode) are now dropped once in `build_topology`, so the
   model's edge list and the layout's endpoints stay index-consistent; the stale
