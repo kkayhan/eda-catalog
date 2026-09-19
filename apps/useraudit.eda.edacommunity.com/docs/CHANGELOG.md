@@ -6,6 +6,33 @@ Versions follow the EDA release the app is built and validated against, with
 an incrementing build suffix: `v<eda-release>-<n>` (e.g. `v26.4.3-1`,
 `v26.4.3-2`). When the target EDA release changes, the suffix restarts at `-1`.
 
+## v26.8.2-1
+
+Re-baselined to **EDA 26.8.2** (core v6). The controller code is identical to
+v26.4.1-15; the manifest now declares `supportedCoreVersions: v6.0.0` and the
+bundle is built with edabuilder v26.8.2. Clusters on EDA 26.4.1 stay on the
+v26.4.1 line (branch `line/26.4.1`).
+
+Validated on an air-gapped EDA 26.8.2 cluster, installed with `kubectl apply`
+from the air-gap bundle (images through the assets-VM registry mirror):
+
+- self-provisioning of the `eda-useraudit` Keycloak service client and of the
+  `edarole_useraudit-controller` realm role, service-account token, first-run
+  watermark from the transaction summary API;
+- transactions captured with their resource changes; GUI sign-in (`EDA-Login`,
+  client `auth`) with the real client IP; Keycloak admin events (group, role
+  mapping, user create/update, group membership);
+- access to the HttpProxy (`inApiServer`): no token `400`, `admin` `200`, a member
+  of a group holding `useraudit-reader` `200` (and `403` on EDA resources and user
+  administration), an authenticated user without that group `403`.
+
+Worth knowing on 26.8.2 (also true on 26.4.1): changes made through EDA's user
+administration (`/core/admin/...`, which the EDA UI uses) reach Keycloak as the
+EDA API server's own service account, so their admin events are logged as
+`User=service-account-eda-api-server` from the eda-api pod address, not as the
+person who made them. A user created there without `"enabled": true` starts
+disabled and cannot sign in.
+
 ## v26.4.1-15
 
 Corrects a diagnostic defect introduced in v26.4.1-14. No behavioural change to

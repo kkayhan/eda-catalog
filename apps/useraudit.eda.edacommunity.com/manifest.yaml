@@ -21,15 +21,16 @@ spec:
     logging automatically upon installation with no additional
     setup required.
   author: EDACommunity
-  image: ghcr.io/kkayhan/eda-catalog/useraudit-app:v26.4.1-15
+  image: ghcr.io/kkayhan/eda-catalog/useraudit-app:v26.8.2-1
   supportedCoreVersions:
-    - "v5.0.0-0"
+    - "v6.0.0"
   appInfo:
     categories:
       - monitoring
     documentation: useraudit/docs
     ociSpecVersion: v1.0.0
     settings: useraudit/settings/openapi/eda_oas_useraudit.eda.edacommunity.com_appsettings.json
+    appImageDigest: sha256:b5998b746935b4607e2596cc31b620fcfd0f847effd3a0da61adce738270fd19
   components:
     - crd:
         api:
