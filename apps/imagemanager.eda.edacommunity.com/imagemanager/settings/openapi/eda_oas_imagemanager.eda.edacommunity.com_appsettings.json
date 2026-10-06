@@ -31,13 +31,13 @@
           "default": "500m"
         },
         "controllerMemoryLimit": {
-          "description": "Memory limit for the Image Manager controller pod (Kubernetes quantity, e.g. \"512Mi\").",
+          "description": "Memory limit for the Image Manager controller pod (Kubernetes quantity, e.g. \"512Mi\").\nDefault 512Mi: uploads stream to disk, but a fast push to CephFS can hold up to\n~32Mi of not-yet-flushed page cache per concurrent upload (cgroup-charged).",
           "type": "string",
           "title": "Controller memory limit",
           "default": "512Mi"
         },
         "nodeAgentEnabled": {
-          "description": "NodeAgentEnabled deploys the per-node DaemonSet that writes containerd\nregistry-hosts redirects for SR-SIM image pulls. Set false for labs that\nonly upload SR Linux / SR OS hardware images (DaemonSet stays running but\nskips hosts.toml writes; scale to 0 for zero node pods).",
+          "description": "NodeAgentEnabled deploys the per-node DaemonSet that writes containerd\nregistry-hosts redirects for SR-SIM image pulls. Set false for labs that\nonly upload SR Linux / SR OS hardware images (DaemonSet stays running but\nskips hosts.toml writes; scale to 0 for zero node pods). On Talos the agent\ncannot write the immutable containerd config anyway, so false is sensible there.",
           "type": "string",
           "title": "Enable SR-SIM node agent",
           "default": "true"
