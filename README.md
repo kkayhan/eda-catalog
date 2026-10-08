@@ -1,5 +1,36 @@
 # kkayhan EDA catalog
 
+> [!IMPORTANT]
+> **EDA 26.8 or later: turn on _Skip Signature Verification_ before you install anything
+> from this catalog.**
+>
+> Since EDA 26.8 the App Store verifies that every app is signed, and it rejects unsigned
+> apps exactly like apps with an invalid signature. The apps in this catalog are community
+> apps and are **not Nokia-signed**, so the install fails until you allow unsigned apps on
+> the registry they are pulled from.
+>
+> Edit your existing Registry for `ghcr.io` (named `eda-apps-registry` on a standard
+> install) and enable **Skip Signature Verification**:
+>
+> - **EDA UI:** System Administration → App Management → Registries → `eda-apps-registry`
+>   → Edit → tick **Skip Signature Verification** → Commit.
+> - **kubectl:**
+>
+>   ```bash
+>   kubectl -n eda-system patch registries.appstore.eda.nokia.com eda-apps-registry \
+>     --type=merge -p '{"spec":{"skipSignatureVerification":true}}'
+>   ```
+>
+> Good to know:
+>
+> - Leave **Skip Digest Verification** off. It is not needed, and with it off the Store
+>   still checks each app image against the digest recorded in this catalog.
+> - The setting applies to the whole registry, so it also skips the signature check for
+>   Nokia's own apps pulled from `ghcr.io`.
+> - **Air-gapped clusters:** set it on the Registry that serves `ghcr.io` through your
+>   local mirror.
+> - **EDA 26.4 and earlier** have no such setting and need no change.
+
 A [Nokia EDA](https://docs.eda.dev/) **app catalog** — a small collection of community
 apps you can install into an EDA cluster straight from the EDA Store.
 
@@ -45,7 +76,9 @@ archives, SIEM feeds, and change-management audits.
 
 ## How to use this catalog
 
-Register it on your EDA cluster with a **single** `Catalog` CR, then install any app from
+On **EDA 26.8 or later**, first enable **Skip Signature Verification** on your `ghcr.io`
+Registry, as described [at the top of this page](#kkayhan-eda-catalog). Then register the
+catalog on your EDA cluster with a **single** `Catalog` CR, then install any app from
 the Store (in the EDA UI: **System Administration → APP Management → Catalogs → Create**,
 paste the YAML, **Commit**):
 
